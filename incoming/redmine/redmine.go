@@ -2,7 +2,6 @@ package redmine
 
 import "net/http"
 import "crypto/tls"
-import "encoding/xml"
 
 import "github.com/yinyin/infocrosswalk"
 import "github.com/yinyin/infocrosswalk/incoming"
@@ -36,11 +35,18 @@ type activityEntry struct {
 	Author    authorMeta `xml:"author"`
 }
 
-func (e *activityEntry) getMessageContent() (channel string, tag string, message string, link string) {
+func (e *activityEntry) GetMessageContent() (channel string, tag string, message string, link string) {
 	channel = e.Author.Name
 	message = e.Title
 	link = e.LinkUrl.Href
 	return channel, tag, message, link
+}
+
+func (e *activityEntry) Reset() {
+	e.Title = ""
+	e.LinkUrl.Href = ""
+	e.UpdateTime = ""
+	e.Author.Name = ""
 }
 
 func (c *redmineAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent) (err error) {
@@ -49,24 +55,8 @@ func (c *redmineAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent) (
 		return err
 	}
 	defer resp.Body.Close()
-	decoder := xml.NewDecoder(resp.Body)
-	for {
-		t, _ := decoder.Token()
-		if nil == t {
-			break
-		}
-		switch se := t.(type) {
-		case xml.StartElement:
-			if se.Name.Local == "entry" {
-				var e activityEntry
-				decoder.DecodeElement(&e, &se)
-				channel, tag, message, link := e.getMessageContent()
-				m := infocrosswalk.MessageContent{channel, tag, message, link}
-				out <- m
-			}
-		}
-	}
-	return nil
+	var e activityEntry
+	return incoming.DecodeAtom(out, resp.Body, &e)
 }
 
 func (c *redmineAdapter) Close() {
