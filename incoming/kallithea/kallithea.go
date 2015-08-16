@@ -79,4 +79,5 @@ func (c *kallitheaAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent)
 }
 
 func (c *kallitheaAdapter) Close() {
+	c.httpTransport.CloseIdleConnections()
 }

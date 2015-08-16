@@ -60,4 +60,5 @@ func (c *redmineAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent) (
 }
 
 func (c *redmineAdapter) Close() {
+	c.httpTransport.CloseIdleConnections()
 }
