@@ -23,19 +23,19 @@ func NewAdapter(atomUrl string) (adapter incoming.Adapter, err error) {
 }
 
 type linkUrlHref struct {
-	Href    string `xml:"href,attr"`
+	Href string `xml:"href,attr"`
 }
 
 type changesetEntry struct {
-	Title      string `xml:"title"`
+	Title      string      `xml:"title"`
 	LinkUrl    linkUrlHref `xml:"link"`
-	UpdateTime string `xml:"updated"`
-	Summary    string `xml:"summary"`
+	UpdateTime string      `xml:"updated"`
+	Summary    string      `xml:"summary"`
 }
 
 var (
-	regexAuthor = regexp.MustCompile("([A-Za-z0-9\\s,-_]+)(\\s*<[A-Za-z0-9\\s,-_<>@\\.]*)?\\s*committed on [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\\s*<")
-	regexBranch = regexp.MustCompile(">branch:\\s*([^<\\s]+)<")
+	regexAuthor   = regexp.MustCompile("([A-Za-z0-9\\s,-_]+)(\\s*<[A-Za-z0-9\\s,-_<>@\\.]*)?\\s*committed on [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\\s*<")
+	regexBranch   = regexp.MustCompile(">branch:\\s*([^<\\s]+)<")
 	regexRevision = regexp.MustCompile("changeset: <[^>]+>([a-fA-F0-9]+)</a>")
 )
 
@@ -67,7 +67,6 @@ func (e *changesetEntry) Reset() {
 	e.UpdateTime = ""
 	e.Summary = ""
 }
-
 
 func (c *kallitheaAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent) (err error) {
 	resp, err := c.httpClient.Get(c.atomUrl)

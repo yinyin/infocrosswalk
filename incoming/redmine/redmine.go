@@ -21,18 +21,18 @@ func NewAdapter(atomUrl string) (adapter incoming.Adapter, err error) {
 }
 
 type linkUrlHref struct {
-	Href    string `xml:"href,attr"`
+	Href string `xml:"href,attr"`
 }
 
 type authorMeta struct {
-	Name  string `xml:"name"`
+	Name string `xml:"name"`
 }
 
 type activityEntry struct {
-	Title      string `xml:"title"`
+	Title      string      `xml:"title"`
 	LinkUrl    linkUrlHref `xml:"link"`
-	UpdateTime string `xml:"updated"`
-	Author    authorMeta `xml:"author"`
+	UpdateTime string      `xml:"updated"`
+	Author     authorMeta  `xml:"author"`
 }
 
 func (e *activityEntry) GetMessageContent() (channel string, tag string, message string, link string) {
