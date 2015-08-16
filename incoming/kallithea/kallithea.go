@@ -70,7 +70,7 @@ func (e *changesetEntry) Reset() {
 
 
 func (c *kallitheaAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent) (err error) {
-	resp, err := http.Get(c.atomUrl)
+	resp, err := c.httpClient.Get(c.atomUrl)
 	if nil != err {
 		return err
 	}
