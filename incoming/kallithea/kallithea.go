@@ -4,7 +4,6 @@ import "strings"
 import "regexp"
 import "net/http"
 import "crypto/tls"
-import "encoding/xml"
 
 import "github.com/yinyin/infocrosswalk"
 import "github.com/yinyin/infocrosswalk/incoming"
@@ -40,27 +39,35 @@ var (
 	regexRevision = regexp.MustCompile("changeset: <[^>]+>([a-fA-F0-9]+)</a>")
 )
 
-func translateMessage(msg string, v string) (channel string, tag string, message string) {
+func (e *changesetEntry) GetMessageContent() (channel string, tag string, message string, link string) {
 	var author string
-	m := regexAuthor.FindStringSubmatch(v)
+	m := regexAuthor.FindStringSubmatch(e.Summary)
 	if nil != m {
 		author = m[1]
 	}
-	m = regexBranch.FindStringSubmatch(v)
+	m = regexBranch.FindStringSubmatch(e.Summary)
 	if nil != m {
 		channel = m[1]
 	}
-	m = regexRevision.FindStringSubmatch(v)
+	m = regexRevision.FindStringSubmatch(e.Summary)
 	if nil != m {
 		tag = m[1]
 	}
-	m_aux := strings.SplitN(msg, "\n", 2)
+	m_aux := strings.SplitN(e.Title, "\n", 2)
 	message = strings.Trim(m_aux[0], " \r\n\t")
 	if "" != author {
 		message = message + " - " + author
 	}
-	return channel, tag, message
+	return channel, tag, message, e.LinkUrl.Href
 }
+
+func (e *changesetEntry) Reset() {
+	e.Title = ""
+	e.LinkUrl.Href = ""
+	e.UpdateTime = ""
+	e.Summary = ""
+}
+
 
 func (c *kallitheaAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent) (err error) {
 	resp, err := http.Get(c.atomUrl)
@@ -68,24 +75,8 @@ func (c *kallitheaAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent)
 		return err
 	}
 	defer resp.Body.Close()
-	decoder := xml.NewDecoder(resp.Body)
-	for {
-		t, _ := decoder.Token()
-		if nil == t {
-			break
-		}
-		switch se := t.(type) {
-		case xml.StartElement:
-			if se.Name.Local == "entry" {
-				var e changesetEntry
-				decoder.DecodeElement(&e, &se)
-				channel, tag, message := translateMessage(e.Title, e.Summary)
-				m := infocrosswalk.MessageContent{channel, tag, message, e.LinkUrl.Href}
-				out <- m
-			}
-		}
-	}
-	return nil
+	var e changesetEntry
+	return incoming.DecodeAtom(out, resp.Body, &e)
 }
 
 func (c *kallitheaAdapter) Close() {
