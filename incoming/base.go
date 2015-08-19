@@ -1,8 +1,10 @@
 package incoming
 
+import "time"
+
 import "github.com/yinyin/infocrosswalk"
 
 type Adapter interface {
-	FetchMessage(out chan<- infocrosswalk.MessageContent) (err error)
+	FetchMessage(lastProgress time.Time, out chan<- infocrosswalk.MessageContent) (progress time.Time, err error)
 	Close()
 }
