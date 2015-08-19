@@ -1,5 +1,6 @@
 package redmine
 
+import "time"
 import "net/http"
 import "crypto/tls"
 
@@ -42,6 +43,14 @@ func (e *activityEntry) GetMessageContent() (channel string, tag string, message
 	return channel, tag, message, link
 }
 
+func (e *activityEntry) GetTime() (t time.Time) {
+	t, err := time.Parse(time.RFC3339, e.UpdateTime)
+	if nil != err {
+		return time.Unix(0, 0)
+	}
+	return t
+}
+
 func (e *activityEntry) Reset() {
 	e.Title = ""
 	e.LinkUrl.Href = ""
@@ -49,14 +58,14 @@ func (e *activityEntry) Reset() {
 	e.Author.Name = ""
 }
 
-func (c *redmineAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent) (err error) {
+func (c *redmineAdapter) FetchMessage(lastProgress time.Time, out chan<- infocrosswalk.MessageContent) (progress time.Time, err error) {
 	resp, err := c.httpClient.Get(c.atomUrl)
 	if nil != err {
-		return err
+		return lastProgress, err
 	}
 	defer resp.Body.Close()
 	var e activityEntry
-	return incoming.DecodeAtom(out, resp.Body, &e)
+	return incoming.DecodeAtom(lastProgress, out, resp.Body, &e)
 }
 
 func (c *redmineAdapter) Close() {

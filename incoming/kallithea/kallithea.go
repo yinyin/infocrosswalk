@@ -1,5 +1,6 @@
 package kallithea
 
+import "time"
 import "strings"
 import "regexp"
 import "net/http"
@@ -61,6 +62,14 @@ func (e *changesetEntry) GetMessageContent() (channel string, tag string, messag
 	return channel, tag, message, e.LinkUrl.Href
 }
 
+func (e *changesetEntry) GetTime() (t time.Time) {
+	t, err := time.Parse(time.RFC3339, e.UpdateTime)
+	if nil != err {
+		return time.Unix(0, 0)
+	}
+	return t
+}
+
 func (e *changesetEntry) Reset() {
 	e.Title = ""
 	e.LinkUrl.Href = ""
@@ -68,14 +77,14 @@ func (e *changesetEntry) Reset() {
 	e.Summary = ""
 }
 
-func (c *kallitheaAdapter) FetchMessage(out chan<- infocrosswalk.MessageContent) (err error) {
+func (c *kallitheaAdapter) FetchMessage(lastProgress time.Time, out chan<- infocrosswalk.MessageContent) (progress time.Time, err error) {
 	resp, err := c.httpClient.Get(c.atomUrl)
 	if nil != err {
-		return err
+		return lastProgress, err
 	}
 	defer resp.Body.Close()
 	var e changesetEntry
-	return incoming.DecodeAtom(out, resp.Body, &e)
+	return incoming.DecodeAtom(lastProgress, out, resp.Body, &e)
 }
 
 func (c *kallitheaAdapter) Close() {

@@ -1,5 +1,6 @@
 package incoming
 
+import "time"
 import "io"
 import "encoding/xml"
 
@@ -7,11 +8,14 @@ import "github.com/yinyin/infocrosswalk"
 
 type Entry interface {
 	GetMessageContent() (channel string, tag string, message string, link string)
+	GetTime() (t time.Time)
 	Reset()
 }
 
-func DecodeAtom(out chan<- infocrosswalk.MessageContent, r io.Reader, e Entry) (err error) {
+
+func DecodeAtom(lastProgress time.Time, out chan<- infocrosswalk.MessageContent, r io.Reader, e Entry) (progress time.Time, err error) {
 	decoder := xml.NewDecoder(r)
+	progress = lastProgress
 	for {
 		t, _ := decoder.Token()
 		if nil == t {
@@ -22,11 +26,17 @@ func DecodeAtom(out chan<- infocrosswalk.MessageContent, r io.Reader, e Entry) (
 			if se.Name.Local == "entry" {
 				e.Reset()
 				decoder.DecodeElement(e, &se)
-				channel, tag, message, link := e.GetMessageContent()
-				m := infocrosswalk.MessageContent{channel, tag, message, link}
-				out <- m
+				tstamp := e.GetTime()
+				if tstamp.After(lastProgress) {
+					if tstamp.After(progress) {
+						progress = tstamp
+					}
+					channel, tag, message, link := e.GetMessageContent()
+					m := infocrosswalk.MessageContent{channel, tag, message, link}
+					out <- m
+				}
 			}
 		}
 	}
-	return nil
+	return progress, nil
 }
