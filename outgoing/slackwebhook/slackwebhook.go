@@ -17,7 +17,7 @@ type slackAdapter struct {
 	hookUrl       string
 	bufferSize    int
 	messageBuffer []string
-	overflowedBuffer bool
+	overflowCount int
 }
 
 func getProxyFunction(proxyUrl string) (f func(*http.Request) (*url.URL, error), err error) {
@@ -43,7 +43,7 @@ func NewAdapter(botUserName string, hookUrl string, proxyUrl string, bufferSize 
 	if 0 < bufferSize {
 		b = make([]string, 0, bufferSize)
 	}
-	adapter = &slackAdapter{c, t, botUserName, hookUrl, bufferSize, b, false}
+	adapter = &slackAdapter{c, t, botUserName, hookUrl, bufferSize, b, 0}
 	return adapter, nil
 }
 
@@ -97,8 +97,14 @@ func (c *slackAdapter) sendContent(message []string) (err error) {
 	var failText string
 	var contentText string
 	if l > 1 {
-		failText = message[0] + " ... (" + strconv.Itoa(l) + " messages)"
-		contentText = "_Have_ " + strconv.Itoa(l) + " _messages_ ...\n" + strings.Join(message, "\n")
+		totalMessageCount := l + c.overflowCount
+		failText = message[0] + " ... (" + strconv.Itoa(totalMessageCount) + " messages)"
+		if c.overflowCount > 0 {
+			contentText = ":arrow_forward: Have " + strconv.Itoa(totalMessageCount) + " messages. Display " + strconv.Itoa(l) + " ...\n"
+		} else {
+			contentText = ":arrow_forward: Have " + strconv.Itoa(totalMessageCount) + " messages ...\n"
+		}
+		contentText = contentText + strings.Join(message, "\n")
 	} else {
 		failText = message[0]
 		contentText = message[0]
@@ -120,7 +126,7 @@ func (c *slackAdapter) AddMessage(content *infocrosswalk.MessageContent) (err er
 	message := buildMessageText(content.Channel, content.Tag, content.Text, content.ResourceUrl)
 	if c.bufferSize > 0 {
 		if c.bufferSize == len(c.messageBuffer) {
-			c.overflowedBuffer = true
+			c.overflowCount = c.overflowCount + 1
 		} else {
 			c.messageBuffer = append(c.messageBuffer, message)
 		}
@@ -134,6 +140,7 @@ func (c *slackAdapter) Flush() (err error) {
 	if len(c.messageBuffer) > 0 {
 		err = c.sendContent(c.messageBuffer)
 		c.messageBuffer = make([]string, 0, c.bufferSize)
+		c.overflowCount = 0
 	} else {
 		err = nil
 	}
