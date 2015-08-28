@@ -95,12 +95,10 @@ func buildMessageText(channel string, tag string, text string, linkurl string) (
 func (c *slackAdapter) sendContent(message []string) (err error) {
 	l := len(message)
 	var failText string
-	var preText string
 	var contentText string
 	if l > 1 {
 		failText = message[0] + " ... (" + strconv.Itoa(l) + " messages)"
-		preText = "Have " + strconv.Itoa(l) + " messages ..."
-		contentText = strings.Join(message, "\n")
+		contentText = "_Have_ " + strconv.Itoa(l) + " _messages_ ...\n" + strings.Join(message, "\n")
 	} else {
 		failText = message[0]
 		contentText = message[0]
@@ -110,7 +108,6 @@ func (c *slackAdapter) sendContent(message []string) (err error) {
 		IconEmoji: "",
 		Attachments: []slackMessageAttachment{slackMessageAttachment{
 			FallbackText: failText,
-			PreText: preText,
 			Text: contentText,}},}
 	b, err := json.Marshal(p)
 	postbody := bytes.NewReader(b)
