@@ -94,29 +94,24 @@ func buildMessageText(channel string, tag string, text string, linkurl string) (
 
 func (c *slackAdapter) sendContent(message []string) (err error) {
 	l := len(message)
+	var failText string
+	var preText string
+	var contentText string
+	if l > 1 {
+		failText = message[0] + " ... (" + strconv.Itoa(l) + " messages)"
+		preText = "Have " + strconv.Itoa(l) + " messages ..."
+		contentText = strings.Join(message, "\n")
+	} else {
+		failText = message[0]
+		contentText = message[0]
+	}
 	p := slackMessagePayload{
 		UserName:  c.botUserName,
 		IconEmoji: "",
-		Attachments: make([]slackMessageAttachment, 0, l + 1),}
-	var borderColor string
-	if l > 1 {
-		t := "(have " + strconv.Itoa(l) + " messages)"
-		m := slackMessageAttachment{
-			FallbackText: t,
-			Color: "#888888",
-			Text: t,}
-		p.Attachments = append(p.Attachments, m)
-		borderColor = "#cccccc"
-	} else {
-		borderColor = "#666666"
-	}
-	for _, msgText := range(message) {
-		m := slackMessageAttachment{
-			FallbackText: msgText,
-			Color: borderColor,
-			Text: msgText,}
-		p.Attachments = append(p.Attachments, m)
-	}
+		Attachments: []slackMessageAttachment{slackMessageAttachment{
+			FallbackText: failText,
+			PreText: preText,
+			Text: contentText,}},}
 	b, err := json.Marshal(p)
 	postbody := bytes.NewReader(b)
 	resp, err := c.httpClient.Post(c.hookUrl, "application/json", postbody)
