@@ -49,14 +49,14 @@ func NewAdapter(botUserName string, hookUrl string, proxyUrl string, bufferSize 
 
 type slackMessageAttachment struct {
 	FallbackText string `json:"fallback"`
-	Color string `json:"color,omitempty"`
-	PreText string `json"pretext,omitempty"`
-	Text string `json:"text,omitempty"`
+	Color        string `json:"color,omitempty"`
+	PreText      string `json"pretext,omitempty"`
+	Text         string `json:"text,omitempty"`
 }
 
 type slackMessagePayload struct {
-	UserName  string `json:"username,omitempty"`
-	IconEmoji string `json:"icon_emoji,omitempty"`
+	UserName    string                   `json:"username,omitempty"`
+	IconEmoji   string                   `json:"icon_emoji,omitempty"`
 	Attachments []slackMessageAttachment `json:"attachments,omitempty"`
 }
 
@@ -112,9 +112,9 @@ func (c *slackAdapter) sendContent(message []string) (err error) {
 	p := slackMessagePayload{
 		UserName:  c.botUserName,
 		IconEmoji: "",
-		Attachments: []slackMessageAttachment{slackMessageAttachment{
+		Attachments: []slackMessageAttachment{{
 			FallbackText: failText,
-			Text: contentText,}},}
+			Text:         contentText}}}
 	b, err := json.Marshal(p)
 	postbody := bytes.NewReader(b)
 	resp, err := c.httpClient.Post(c.hookUrl, "application/json", postbody)
@@ -132,7 +132,7 @@ func (c *slackAdapter) AddMessage(content *infocrosswalk.MessageContent) (err er
 		}
 		return nil
 	} else {
-		return c.sendContent([]string{message});
+		return c.sendContent([]string{message})
 	}
 }
 
