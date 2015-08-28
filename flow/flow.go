@@ -26,11 +26,14 @@ func Run(lastProgress time.Time, outAdapter outgoing.Adapter, inAdapter incoming
 
 	errorCount = 0
 	for m := range flowPipe {
-		err := outAdapter.AddMessage(&m)
-		if nil != err {
+		if err := outAdapter.AddMessage(&m); nil != err {
 			fmt.Println("error (out: ", outAdapter, "):", err)
 			errorCount = errorCount + 1
 		}
+	}
+	if err := outAdapter.Flush(); nil != err {
+		fmt.Println("error (out: ", outAdapter, "):", err)
+		errorCount = errorCount + 1
 	}
 	return resultProgress, errorCount
 }
