@@ -1,6 +1,7 @@
 package slackwebhook
 
 import "bytes"
+import "strconv"
 import "strings"
 import "net/http"
 import "net/url"
@@ -14,6 +15,9 @@ type slackAdapter struct {
 	httpTransport *http.Transport
 	botUserName   string
 	hookUrl       string
+	bufferSize    int
+	messageBuffer []string
+	overflowedBuffer bool
 }
 
 func getProxyFunction(proxyUrl string) (f func(*http.Request) (*url.URL, error), err error) {
@@ -28,21 +32,32 @@ func getProxyFunction(proxyUrl string) (f func(*http.Request) (*url.URL, error),
 	return f, nil
 }
 
-func NewAdapter(botUserName string, hookUrl string, proxyUrl string) (adapter outgoing.Adapter, err error) {
+func NewAdapter(botUserName string, hookUrl string, proxyUrl string, bufferSize int) (adapter outgoing.Adapter, err error) {
 	proxyFunc, err := getProxyFunction(proxyUrl)
 	if nil != err {
 		return nil, err
 	}
 	t := &http.Transport{Proxy: proxyFunc}
 	c := &http.Client{Transport: t}
-	adapter = &slackAdapter{c, t, botUserName, hookUrl}
+	var b []string
+	if 0 < bufferSize {
+		b = make([]string, 0, bufferSize)
+	}
+	adapter = &slackAdapter{c, t, botUserName, hookUrl, bufferSize, b, false}
 	return adapter, nil
+}
+
+type slackMessageAttachment struct {
+	FallbackText string `json:"fallback"`
+	Color string `json:"color,omitempty"`
+	PreText string `json"pretext,omitempty"`
+	Text string `json:"text,omitempty"`
 }
 
 type slackMessagePayload struct {
 	UserName  string `json:"username,omitempty"`
-	Text      string `json:"text"`
 	IconEmoji string `json:"icon_emoji,omitempty"`
+	Attachments []slackMessageAttachment `json:"attachments,omitempty"`
 }
 
 func escapeText(v string) (result string) {
@@ -77,16 +92,59 @@ func buildMessageText(channel string, tag string, text string, linkurl string) (
 	return message
 }
 
-func (c *slackAdapter) AddMessage(content *infocrosswalk.MessageContent) (err error) {
-	message := buildMessageText(content.Channel, content.Tag, content.Text, content.ResourceUrl)
+func (c *slackAdapter) sendContent(message []string) (err error) {
+	l := len(message)
 	p := slackMessagePayload{
 		UserName:  c.botUserName,
-		Text:      message,
-		IconEmoji: ""}
+		IconEmoji: "",
+		Attachments: make([]slackMessageAttachment, 0, l + 1),}
+	var borderColor string
+	if l > 1 {
+		t := "(have " + strconv.Itoa(l) + " messages)"
+		m := slackMessageAttachment{
+			FallbackText: t,
+			Color: "#888888",
+			Text: t,}
+		p.Attachments = append(p.Attachments, m)
+		borderColor = "#cccccc"
+	} else {
+		borderColor = "#666666"
+	}
+	for _, msgText := range(message) {
+		m := slackMessageAttachment{
+			FallbackText: msgText,
+			Color: borderColor,
+			Text: msgText,}
+		p.Attachments = append(p.Attachments, m)
+	}
 	b, err := json.Marshal(p)
 	postbody := bytes.NewReader(b)
 	resp, err := c.httpClient.Post(c.hookUrl, "application/json", postbody)
 	defer resp.Body.Close()
+	return err
+}
+
+func (c *slackAdapter) AddMessage(content *infocrosswalk.MessageContent) (err error) {
+	message := buildMessageText(content.Channel, content.Tag, content.Text, content.ResourceUrl)
+	if c.bufferSize > 0 {
+		if c.bufferSize == len(c.messageBuffer) {
+			c.overflowedBuffer = true
+		} else {
+			c.messageBuffer = append(c.messageBuffer, message)
+		}
+		return nil
+	} else {
+		return c.sendContent([]string{message});
+	}
+}
+
+func (c *slackAdapter) Flush() (err error) {
+	if len(c.messageBuffer) > 0 {
+		err = c.sendContent(c.messageBuffer)
+		c.messageBuffer = make([]string, 0, c.bufferSize)
+	} else {
+		err = nil
+	}
 	return err
 }
 
